@@ -22,6 +22,15 @@ end
 1. 使用vagrant up命令下载box和启动容器，如果速度很慢请自行离线下载
 2. 通过vagrant ssh可以进入到虚拟机中
 
+```
+vagrant status 查看当前主机的虚拟机状态  
+vagrant box list 查看当前主机上已经安装的box信息
+vagrant halt  停止默认虚拟主机   跟上虚拟主机名字，停止对应的虚拟主机
+vagrant destroy  删除虚拟主机
+vagrant init  生成一个默认的Vagrantfile
+vagrant up 启动当前目录的一个Vagrantfile对应的虚拟主机配置
+```
+
 
 
 ## docker安装
@@ -612,4 +621,70 @@ end
 > vagrant plugin install vagrant-vbguest
 >
 > vagrant reload --provision  
+
+
+
+#### 网络的基础
+
+##### Ping 和telnet 
+
+- Ping （ICMP协议）：验证IP的可达性
+- telnet（ICMP） ：验证服务的可用性
+
+wireshark   抓包工具
+
+
+
+网络的命名空间
+
+```
+sudo docker run -d --name test1 busybox /bin/sh -c "while true; do sleep 3600; done"
+sudo docker ps
+sudo docker exec -it 容器的ID   /bin/sh   #进入到容易内部
+ip a   #查看当前虚拟主机的ip配置信息
+sudo docker exec 容器id ip a
+```
+
+
+
+sudo ip netns list    查看当前主机的网络namespace 
+
+sudo ip netns delete test1    删除test1的network namespace
+
+sudo ip netns add test1   添加test1的network namespace
+
+sudo ip netns exec test1  ip a    看到的是
+
+ip link   
+
+sudo ip netns exec test1 ip link set dev lo up    让lo端口的up起来
+
+ 
+
+实例演示，让两台虚拟机可以连接起来
+
+```
+ip link
+sudo ip link add veth-test1 type veth peer name veth-test2
+ip link 
+sudo ip link set veth-test1 netns test1
+sudo ip link set veth-test2 netns test2
+sudo ip netns exec test1 ip link
+sudo ip netns exec test2 ip link
+ip link
+
+sudo ip netns exec test1 ip addr add 192.168.1.1/24 dev veth-test1
+sudo ip netns exec test1 ip addr add 192.168.1.2/24 dev veth-test2
+sudo ip netns exec test1 ip link
+sudo ip netns exec test2 ip link
+
+sudo ip netns exec test1 ip link set dev veth-test1 up   #启动Veth-test1端口
+sudo ip netns exec test2 ip link set dev veth-test2 up   #启动Veth-test1端口
+sudo ip netns exec test1 ip a
+sudo ip netns exec test2 ip a
+
+
+sudo ip netns exec test1 ping 192.168.1.2
+sudo ip netns exec test2 ping 192.168.1.1
+```
 
