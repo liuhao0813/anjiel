@@ -490,7 +490,126 @@ CMD ["mongod"]
   docker push registry主机IP：端口/hello-world
   ```
 
-- 
 
-- 
+
+
+#### Dockerfile实战演示
+
+> 演示Stress项目的使用
+
+```
+docker run -it ubuntu 
+
+apt-get update && apt-get install -y stress  
+
+which stress     stress安装位置
+
+stress --help   帮助信息
+
+stress --vm 1  --verbose 
+```
+
+DEMO Dockerfile如下：
+
+```
+FROM ubuntu
+RUN apt-get update && apt-get install -y stress
+ENTRYPOINT ["/usr/bin/stress"]
+CMD []    #这个地方的参数是通过docker run 运行是跟在后面的参数
+例：docker run -it liuhao/ubuntu-stress --vm 1  --verbose
+```
+
+
+
+#### 如果对一个容器进行资源限制
+
+--memory         设置内存的大小  
+
+--memory-swap    如果未设置swap-memeory大小，默认是memeory的大小
+
+docker run --memory=200M liuhao/ubuntu-stress --vm 1 --verbose --vm-byte 500M
+
+--cpu-shares   设置CPU的占比权重  可以设置容器占用CPU的优先级
+
+
+
+#### Docker Network
+
+##### 单机
+
+- Bridge Network
+- Host Network
+- None Network  
+
+##### 多机
+
+- Overlay Network
+
+演示环境：  通过vagrant启动两台visualbox虚拟主机
+
+```
+Vagrant.require_version ">=1.6.0"
+
+boxes = [
+    {
+        :name => "docker-node1",
+        :eth1 => "192.168.205.10",
+        :mem => "1024",
+        :cpu => "1"
+    },
+    {
+        :name => "docker-node2",
+        :eth1 => "192.168.205.11",
+        :mem => "1024",
+        :cpu => "1"
+    }
+]
+
+Vagrant.configure(2) do |config|
+
+	conofig.vm.box = "centos/7"
+	
+	boxes.each do |opts|
+		config.vm.define opts[:name] do |config|
+			config.vm.hostname = opts[:name]
+			config.vm.provider "vmware_fusion" do |v|
+				v.vmx["memSize"] = opts[:mem]
+				v.vmx["numvcpus"] = opts[:cpu]
+			end
+			
+			config.vm.privider "virtualbox" do |v|
+				v.customize ["modifyvm", :id, "--memory", opts[:mem]]
+				v.customize ["modifyvm", :id, "--cpus", opts[:cpu]]
+			end 
+			config.vm.network :private_network, ip: opts[:eth1]
+		end
+	end
+
+	config.vm.synced_folder "./labs", "/home/vagrant/labs"
+	config.vm.provision "shell", privileged: true, path: "./setup.sh"
+
+end
+```
+
+
+
+> 注意：安装vagrant+centos7时，映射目录的时候报错
+>
+> ```
+> Vagrant was unable to mount VirtualBox shared folders. This is usually
+> because the filesystem "vboxsf" is not available. This filesystem is
+> made available via the VirtualBox Guest Additions and kernel module.
+> Please verify that these guest additions are properly installed in the
+> guest. This is not a bug in Vagrant and is usually caused by a faulty
+> Vagrant box. For context, the command attempted was:
+> 
+> mount -t vboxsf -o uid=1000,gid=1000 vagrant /vagrant
+> The error output from the command was:
+> mount: unknown filesystem type 'vboxsf'
+> ```
+>
+>   解决：
+> vagrant plugin install vagrant-vbguest
+>
+> vagrant reload --provision  
 
