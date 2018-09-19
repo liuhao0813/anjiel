@@ -688,3 +688,78 @@ sudo ip netns exec test1 ping 192.168.1.2
 sudo ip netns exec test2 ping 192.168.1.1
 ```
 
+
+
+#### 默认网络bridge
+
+```
+sudo docker network ls 
+sudo docker network inspect 容器ID   查看容易网路配置信息
+sudo docker exec test1 ip a    
+brctl   show   查看虚拟机与docker容器网路的映射 
+sudo yum install -y bridge-utils     #如果上面的命令无法运行，请先安装bridge-utils工具
+sudo docker run -d --name test1 busybox /bin/sh -c "while true; do sleep 3600; done"
+sudo docker network bridge 查看bridge网络类型
+```
+
+
+
+#### 容器之间的link 
+
+1、容器之间可以通过指定--link参数，直接连接到其他容器中
+
+```
+例：
+ sudo docker  run -d --name test1  busybox  /bin/sh -c "while true; do sleep 3600; done"
+ sudo docker  run -d --name test2 --link test1 busybox  /bin/sh -c "while true; do sleep 3600; done"
+ 
+ docker exec -it test2 /bin/sh 
+ ping test1  这里应该是可以ping通的
+```
+
+> 注意：--link 具有单向性 
+
+
+
+2、通过创建自己的bridge进行网络的连接
+
+```
+docker network create -d bridge my-bridge
+docker network ls
+sudo docker run -d --name test3 --network my-bridge busybox /bin/sh -c "while true; do sleep 3600; done"
+sudo docker ps 
+brctl show 
+sudo docker network inspect my-bridge   查看my-bridge的网络配置信息
+docker network connect  my-bridge test2  将test2连接到my-bridge上
+```
+
+> 注意：优先使用自定义bridge的方式，因为使用自定义bridge的话，默认连接到自定义bridge的网络上都是可以通过使用rongqi的name进行网络访问，不存在--link的单向性 
+
+
+
+#### 容器端口的映射
+
+```
+docker run --name web -d nginx
+docker run --name web -d -p 80:80 nginx  
+```
+
+> 通过-p参数指定端口的映射  格式是：内部端口：外部端口
+
+
+
+####   容器网络之HOST和NONE
+
+- NONE是孤立的，独立的docker容器  一般情况下很少使用
+
+- Host ，host网络连接没有自己的网络连接，和主机共享网络连接，会存在端口冲突问题。
+
+
+#### 多容器复杂引用的部署
+
+启动容器的时候可以给容器设置一个环境变量 ，通过-e 指定参数
+
+
+
+
+
