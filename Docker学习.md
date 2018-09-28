@@ -737,6 +737,10 @@ docker network connect  my-bridge test2  将test2连接到my-bridge上
 
 
 
+> 使用多机网络的时候需要注意DNS文件的解析问题，/etc/resolv.conf 这个中，需要配置正确的DNS解析,去掉对一个你的search 选项
+
+
+
 #### 容器端口的映射
 
 ```
@@ -1023,3 +1027,332 @@ lo        Link encap:Local Loopback
 - 受管理的data Volume，由docker后台自动创建
 
 - 绑定挂载的Volume，具体挂载位置可以由用户指定
+
+
+
+#### 实验环境搭建
+
+vagrant plugin list    查看vagrant插件列表
+
+vagrant plugin install vagrant-scp   安装vagrant-scp插件
+
+vagrant scp 将本地目录拷贝到远程虚拟主机上
+
+vagrant scp ../chapter5/labs/ docker-node1: /home/vagrant/labs/ 将chapter5/labs目录拷贝到docker-node1中的/home/vagrant/labs内
+
+
+
+#### 数据持久化：Data Volume 
+
+docker run -d --name mysql1 mysql -e MYSQL_ALLOW_EMPTY_PASSWORD=true mysql
+
+sudo docker logs mysql1  查看当前容器的日志
+
+dacker volume ls   查看volume信息
+
+可以通过 VOLUME ["/var/lib/mysql"]  在Dockerfile中指定此命令
+
+通过-v  name：映射到本地的路径   
+
+docker run -d -v mysql：/var/lib/mysql --name mysql1 mysql -e MYSQL_ALLOW_EMPTY_PASSWORD=true mysql
+
+
+
+#### 数据持久化：Bind Mouting 
+
+
+
+docker run -v  /home/aaa:/root/aaa   会做主机与docker容器对应的文件映射，会自动进行同步
+
+more dockerfile 查看容易的详细信息
+
+docker run  -d -v $(pwd):/usr/share/nginx/html -p 80:80 --name web nginx 
+
+docker rm -f web 强制删除容器
+
+
+
+ 
+
+#### docker-compose
+
+> 案例：wordpress+mysql 两个容器
+>
+> docker run -d --name mysql -v mysql-data:/var/lib/mysql -e MYSQL_ROOT_PASSWORD=root -e MYSQL_DATABASE=wordpress mysql
+>
+> docker run -d -e WORDPRESS_DB_HOST=mysql:3306 --link mysql -p 8080:80 wordpress
+
+
+
+Docker Compose 是一个docker cli工具
+
+可以通过一个yml文件定义多容器的docker应用
+
+通过一条命令就可以根据yml文件的定义去创建或者管理这多个容器
+
+docker-compose.yml
+
+Services  volume  network
+
+
+
+Services 
+
+一个service代表一个container，这个container可以从dockerhub的image来创建，或者从本地的dockerfilebuild出来的image来创建
+
+service的启动类似docker run ，我们可以给其指定network和volume，所以可以给service指定network和volume的引用
+
+
+
+services：
+
+   db:
+
+​        image: postgres: 9.4
+
+  		volumes:
+
+  			- "db-data: /var/lib/postgresql/data"
+
+​		networks:
+
+​			- back-tier
+
+安装docker-compose 
+
+[docker-compose](https://docs.docker.com/compose/install/#install-compose)
+
+
+
+docker-compose ps 查看docker-compose的状态
+
+docker-compose stop 停止/   down 停止同时删除
+
+docker-compose start 启动  
+
+docker-compose up -d   后台启动   调试不用加-d参数，可以看到日志 
+
+docker-compose iamges   docker-compose 中的images
+
+docker-compose exec   docker-compose定义的service 
+
+例1：
+
+```yml
+version: "3"
+services: 
+	redis：
+		image：redis
+	web：
+		build：
+			context：.
+			dockerfile: Dockerfile
+		ports:
+			- 8080:5000
+		enviroment:
+			REDIS_HOST: redis
+```
+
+例2：
+
+```yml
+	version:"3"
+	services:
+		wordpress:
+			image: wordpress
+			ports:
+				- 8080:80
+			environment:
+				WORDPRESS_DB_HOST: mysql
+				WORDPRESS_DB_PASSWORD: root
+			network:
+				- my-bridge
+				
+		mysql:
+			image: mysql
+			environment:
+				MYSQL_ROOT_PASSWORD: root
+				MYSQL_DATABASE: wordpress
+			volumes:
+				- mysql-data:/var/lib/mysql
+			network:
+				- my-bridge
+	volumes:
+		mysql-data:
+		
+	networks:
+		my-bridge:
+			driver: bridge
+	
+```
+
+
+
+容器的水平扩展和负载均衡
+
+docker-compose up --scale web=3 -d  注意docker-compose.yml中的port占用问题
+
+例：
+
+```yml
+version: "3"
+services: 
+	redis：
+		image：redis
+	web：
+		build：
+			context：.
+			dockerfile: Dockerfile
+		enviroment:
+			REDIS_HOST: redis
+	
+	lb:
+		image: dockercloud/haproxy
+		links: 
+			- web
+		ports: 
+			- 8080: 80
+		volumes:
+		 	- /var/run/docker.sock:/var/run/docker.sock
+```
+
+ 
+
+
+
+#### Swarm Mode 容器编排
+
+docker swarm init --advertise-addr=192.168.205.10   定义一个clust节点  swarm-manager节点
+
+根据提示信息中的命令，创建对应的work节点
+
+```
+docker swarm join --token SWMTKN-1-25wu6w86o2zsudxatj231crbqilehsgmbvqshfy2op1tghyx0r-4uybv9feqwdekp7qx1j04u5ti 192.168.0.17:2377
+```
+
+docker swarm  --help 
+
+docker node ls   显示swarm节点列表 查看对应的clust节点的状态，只能在manager上进行操作
+
+docker service create   --help
+
+swarm模式下使用dockerservice create 创建容器
+
+docker service create  --name demo busybox sh -c "while true; do sleep 3600; done"
+
+docker service ls 查看service 列表信息 
+
+docker service ps demo 查看demo容器的详细信息
+
+docker service scale   对service进行横向的扩展   ，对应的service可以自动启动达到指定的扩展数量
+
+例  docker service scale   demo=5
+
+ 
+
+docker service rm demo   删除name为demo的service名称
+
+
+
+### 案例，在多机上部署mysql及wordpress项目
+
+- 创建overlay网络，并设置名称为demo
+
+```
+docker network create -d overlay demo
+```
+
+- 创建mysql service，指定对应的数据库密码是root 数据库名称是wordpress，指定到demo网络中，同时挂载指定对应的挂载名称为mysql-data，制定到对应的/var/lib/mysql 目录中  
+
+```
+docker service create --name mysql --env MYSQL_ROOT_PASSWORD=root --env MYSQL_DATABASE=wordpress  --network demo --mount type=volume,source=mysql-data,destination=/var/lib/mysql mysql
+```
+
+在service中，通过--mount指定对应的数据存储映射
+
+- 创建wordpress服务，指定服务名称为wordpress，同时配置对应的端口映射到80端口，配置环境变量，数据库的密码为root ，对应的数据库主机为上个步骤中创建的mysql服务
+
+```
+docker service create --name wordpress -p 80:80  --network demo --env WORDPRESS_DB_PASSWORD=root  --env WORDPRESS_DB_HOST=mysql wordpress
+```
+
+- 查看服务的启动状态  
+
+```
+docker service ls
+```
+
+xdocker stack deploy   
+
+docker stack deploy wordpress --compose-file=docker-compose.yml
+
+ 
+
+```yml
+version: "3"
+services:
+  web:
+    image: wordpress
+    ports:
+      - 8080:80
+    environment:
+      WORDPRESS_DB_HOST: mysql
+      WORDPRESS_DB_PASSWORD: root
+    networks:
+      - my-network
+    depends_on:
+      - mysql
+    deploy:
+      mode: replicated
+      replicas: 3
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      update_config:
+        parallelism: 1
+        delay: 5s
+        order: stop-first   #这个只支持3.4以上版本 ，这里不支持
+        
+   mysql:
+     image: mysql
+     environment:
+       MYSQL_ROOT_PASSWORD: root
+       MYSQL_DATABASE: wordpress
+     volumes:
+       - mysql-data:/var/lib/mysql
+     networks:
+       - my-network
+     deploy: 
+       mode: global
+       placement:
+         constraints: 
+           - node.role == manager
+         
+volumes:
+  mysql-data:
+  
+networks：
+  my-bridge：
+    driver: overlay
+        
+```
+
+
+
+endpoint_mode:
+
+vip  虚拟IP
+
+dnsrr   DNS round-robin   使用DNS的负载均衡
+
+global ：不能做横向扩展
+
+replicated   默认，可以横向扩展  
+
+​        
+
+placement ：
+
+​    constranints：  指定部署到指定的node
+
