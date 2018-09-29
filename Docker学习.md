@@ -1282,7 +1282,9 @@ docker service create --name wordpress -p 80:80  --network demo --env WORDPRESS_
 docker service ls
 ```
 
-xdocker stack deploy   
+
+
+## docker stack deploy   
 
 docker stack deploy wordpress --compose-file=docker-compose.yml
 
@@ -1340,6 +1342,8 @@ networks：
 
 
 
+
+
 endpoint_mode:
 
 vip  虚拟IP
@@ -1355,4 +1359,113 @@ replicated   默认，可以横向扩展
 placement ：
 
 ​    constranints：  指定部署到指定的node
+
+
+
+## Docker Secret Management
+
+- 存在Swarm Manager节点Raft database里
+- Secret可以assign给一个service，这个service就能看到这个secret
+- 在container内部Secret看起来像文件，但是实际是在内存中
+
+
+
+docker  secret create  
+
+```
+vim password 
+docker secret create my-pw password  #通过文件创建密码
+rm -f password
+
+echo "adminadmin" | docker secret create my-pw2 -  通过管道创建secret
+docker secret ls 查看secret  
+
+docker service create --secret 
+docker service create --name client --secret my-pw busybox sh -c "while true; do sleep 3600; done"
+docker service ls 
+docker exec -it 容器ID sh 
+cd /run/secrets   这个文件可以看到对应的密码信息
+
+
+docker service create --name db --secret my-pw -e MYSQL_ROOT_PASSWORD_FILE=/run/secrets/my-pw mysql  指定mysqlrootpassword来源于指定的secret文件
+```
+
+
+
+docker stack deply wordpress -c=docker-compose.yml
+
+
+
+## Service更新
+
+确认主机上有overlay网络
+
+docker service create --name web -p 8080:5000  --network demo xiaopeng163/python-flask-demo:1.0
+
+确认service有多个，这样在更新的时候才不会停掉
+
+docker service scale web=3
+
+docker service ps web 
+
+curl 127.0.0.1:8080
+
+sh -c "while true ; do curl 127.0.0.1:8080&&sleep 1; done"  监听这个服务
+
+```
+docker service update --image xiaopeng163/python-flask-demo:2.0   image的更新
+docker service update --publish-rm 8080:5000  --pubish-add 8088:5000 web  端口的更新
+```
+
+docker stack 直接就是在docker-compose.yml中更改版本信息，
+
+通过docker stack deploy -c=docker-compose.yml更新
+
+
+
+Docker Cloud
+
+CaaS    Container-as-a-Service
+
+Docker Cloud是提供容器的管理，编排，部署的托管服务
+
+关联云服务上 AWS ECS Azure
+
+添加节点行为Docker host
+
+创建服务Service
+
+创建Stack
+
+Image管理
+
+
+
+两种模式
+
+Standard模式，一个Node就是一个Docker Host
+
+Swarm模式（beta） 多个Node组成的Swarm Cluster
+
+
+
+
+
+## Docker 企业版
+
+[docker EE](http://tore.docker.com ) 下载
+
+docker ee on centos
+
+
+
+
+
+
+
+
+
+
+
+
 
