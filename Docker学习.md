@@ -699,7 +699,7 @@ sudo docker exec test1 ip a
 brctl   show   查看虚拟机与docker容器网路的映射 
 sudo yum install -y bridge-utils     #如果上面的命令无法运行，请先安装bridge-utils工具
 sudo docker run -d --name test1 busybox /bin/sh -c "while true; do sleep 3600; done"
-sudo docker network bridge 查看bridge网络类型
+sudo docker network inspect bridge 查看bridge网络类型
 ```
 
 
@@ -733,7 +733,7 @@ sudo docker network inspect my-bridge   查看my-bridge的网络配置信息
 docker network connect  my-bridge test2  将test2连接到my-bridge上
 ```
 
-> 注意：优先使用自定义bridge的方式，因为使用自定义bridge的话，默认连接到自定义bridge的网络上都是可以通过使用rongqi的name进行网络访问，不存在--link的单向性 
+> 注意：优先使用自定义bridge的方式，因为使用自定义bridge的话，默认连接到自定义bridge的网络上都是可以通过使用容器的name进行网络访问，不存在--link的单向性 
 
 
 
